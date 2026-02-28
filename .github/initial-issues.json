@@ -264,6 +264,15 @@
         "logging",
         "enhancement"
       ]
+    },
+    {
+      "title": "Setup: Add GitHub Repository Social Preview Image",
+      "body": "## Description\nAdd a social preview image to the GitHub repository to improve visibility and branding when the repository link is shared on social media, messaging apps, or other platforms.\n\n## Tasks\n- [ ] Design or create a social preview image (recommended size: 1280×640 px)\n- [ ] Go to the repository **Settings** on GitHub\n- [ ] Scroll down to the **Social preview** section\n- [ ] Upload the image\n- [ ] Verify the preview looks correct by sharing the repository link\n\n## Image Guidelines\n- Recommended size: **1280×640 px**\n- File formats: PNG, JPG, or GIF\n- Keep file size reasonable (under 1 MB)\n- Include project name, logo, and a short tagline if possible\n- Use high contrast and readable fonts\n- Ensure the image represents the project clearly\n\n## Why This Matters\nWhen users share the repository link on platforms like Twitter, LinkedIn, Slack, or Discord, GitHub automatically uses this image as the link preview thumbnail. A professional social preview image improves the project's credibility and recognition.\n\n## Resources\n- [GitHub Docs: Customizing your repository's social media preview](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/customizing-your-repositorys-social-media-preview)\n- [Canva](https://www.canva.com/) for designing the image\n- [Figma](https://www.figma.com/) for more advanced design\n",
+      "labels": [
+        "documentation",
+        "setup",
+        "good-first-issue"
+      ]
     }
   ]
 }

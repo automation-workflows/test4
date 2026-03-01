@@ -3,56 +3,85 @@ name: Evangelist Application — Acceptance Email
 on:
   pull_request:
     types: [closed]
-  workflow_dispatch: 
+
+  workflow_dispatch:  # Manual trigger for testing
+    inputs:
+      test_email:
+        description: "Recipient email (test)"
+        required: true
+        default: "test@example.com"
+      test_name:
+        description: "Applicant name (test)"
+        required: false
+        default: "Test Applicant"
+      test_university:
+        description: "University (test)"
+        required: false
+        default: "Test University"
+      test_region:
+        description: "Region (test)"
+        required: false
+        default: "Test Region"
 
 jobs:
   send-acceptance-email:
-    # Only run when the PR is actually merged AND carries the evangelist-application label
+    # Run on manual dispatch (testing) OR when a labelled PR is merged
     if: |
-      github.event.pull_request.merged == true &&
-      contains(github.event.pull_request.labels.*.name, 'evangelist-application')
+      github.event_name == 'workflow_dispatch' ||
+      (
+        github.event.pull_request.merged == true &&
+        contains(github.event.pull_request.labels.*.name, 'evangelist-application')
+      )
 
     runs-on: ubuntu-latest
 
     steps:
-      - name: Extract applicant details from PR body
+      - name: Extract applicant details from PR body (or test inputs)
         id: applicant
         env:
+          EVENT_NAME: ${{ github.event_name }}
           PR_BODY: ${{ github.event.pull_request.body }}
           PR_AUTHOR: ${{ github.event.pull_request.user.login }}
-          PR_TITLE: ${{ github.event.pull_request.title }}
           PR_URL: ${{ github.event.pull_request.html_url }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
+          INPUT_EMAIL: ${{ github.event.inputs.test_email }}
+          INPUT_NAME: ${{ github.event.inputs.test_name }}
+          INPUT_UNIVERSITY: ${{ github.event.inputs.test_university }}
+          INPUT_REGION: ${{ github.event.inputs.test_region }}
         run: |
-          # Extract email address from PR body (matches standard email format)
-          EMAIL=$(echo "$PR_BODY" | grep -oP '[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}' | head -1)
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            # ── Manual / test run — use the inputs directly ──
+            EMAIL="$INPUT_EMAIL"
+            FULL_NAME="$INPUT_NAME"
+            UNIVERSITY="$INPUT_UNIVERSITY"
+            REGION="$INPUT_REGION"
+            PR_URL="(manual test run)"
+            PR_NUMBER="N/A"
+          else
+            # ── Real PR merge — parse the PR body ──
+            EMAIL=$(echo "$PR_BODY" | grep -oP '[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}' | head -1)
+            FULL_NAME=$(echo "$PR_BODY" | grep -A1 '\*\*Full Name:\*\*' | tail -1 | xargs)
+            UNIVERSITY=$(echo "$PR_BODY" | grep -A1 '\*\*University Name:\*\*' | tail -1 | xargs)
+            REGION=$(echo "$PR_BODY" | grep -A1 '\*\*Country / Region:\*\*' | tail -1 | xargs)
 
-          # Extract Full Name (line after "**Full Name:**")
-          FULL_NAME=$(echo "$PR_BODY" | grep -A1 '\*\*Full Name:\*\*' | tail -1 | xargs)
+            # Fallback to GitHub username if name is empty
+            if [ -z "$FULL_NAME" ]; then
+              FULL_NAME="$PR_AUTHOR"
+            fi
 
-          # Extract University (line after "**University Name:**")
-          UNIVERSITY=$(echo "$PR_BODY" | grep -A1 '\*\*University Name:\*\*' | tail -1 | xargs)
-
-          # Extract Region
-          REGION=$(echo "$PR_BODY" | grep -A1 '\*\*Country / Region:\*\*' | tail -1 | xargs)
-
-          # Fallback to GitHub username if name is empty
-          if [ -z "$FULL_NAME" ]; then
-            FULL_NAME="$PR_AUTHOR"
+            # Fail loudly if no email was found
+            if [ -z "$EMAIL" ]; then
+              echo "::error::No email address found in PR #$PR_NUMBER body. Cannot send acceptance notification."
+              exit 1
+            fi
           fi
 
-          # Fail loudly if no email was found — so admins know to check the PR
-          if [ -z "$EMAIL" ]; then
-            echo "::error::No email address found in PR #$PR_NUMBER body. Cannot send acceptance notification."
-            exit 1
-          fi
-
-          echo "email=$EMAIL"         >> $GITHUB_OUTPUT
-          echo "name=$FULL_NAME"      >> $GITHUB_OUTPUT
+          echo "email=$EMAIL"           >> $GITHUB_OUTPUT
+          echo "name=$FULL_NAME"        >> $GITHUB_OUTPUT
           echo "university=$UNIVERSITY" >> $GITHUB_OUTPUT
-          echo "region=$REGION"       >> $GITHUB_OUTPUT
-          echo "pr_url=$PR_URL"       >> $GITHUB_OUTPUT
-          echo "pr_number=$PR_NUMBER" >> $GITHUB_OUTPUT
+          echo "region=$REGION"         >> $GITHUB_OUTPUT
+          echo "pr_url=$PR_URL"         >> $GITHUB_OUTPUT
+          echo "pr_number=$PR_NUMBER"   >> $GITHUB_OUTPUT
 
       - name: Send acceptance email
         uses: dawidd6/action-send-mail@v3
@@ -65,7 +94,7 @@ jobs:
           subject: "Welcome to AOSSIE — You've been accepted as an Evangelist!"
           from: "AOSSIE <${{ secrets.AOSSIE_MAIL_USERNAME }}>"
           to: ${{ steps.applicant.outputs.email }}
-          bcc: ${{ secrets.AOSSIE_MAIL_USERNAME }}   # keep a copy in the org inbox
+          bcc: ${{ secrets.AOSSIE_ADMIN_BCC_EMAIL }}   # keep a copy in the org inbox (set this secret to e.g. admin@aossie.org)
           priority: normal
           convert_markdown: true
           body: |

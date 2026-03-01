@@ -3,6 +3,7 @@ name: Evangelist Application — Acceptance Email
 on:
   pull_request:
     types: [closed]
+  workflow_dispatch: 
 
 jobs:
   send-acceptance-email:

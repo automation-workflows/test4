@@ -1,0 +1,103 @@
+name: Evangelist Application — Acceptance Email
+
+on:
+  pull_request:
+    types: [closed]
+
+jobs:
+  send-acceptance-email:
+    # Only run when the PR is actually merged AND carries the evangelist-application label
+    if: |
+      github.event.pull_request.merged == true &&
+      contains(github.event.pull_request.labels.*.name, 'evangelist-application')
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Extract applicant details from PR body
+        id: applicant
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          # Extract email address from PR body (matches standard email format)
+          EMAIL=$(echo "$PR_BODY" | grep -oP '[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}' | head -1)
+
+          # Extract Full Name (line after "**Full Name:**")
+          FULL_NAME=$(echo "$PR_BODY" | grep -A1 '\*\*Full Name:\*\*' | tail -1 | xargs)
+
+          # Extract University (line after "**University Name:**")
+          UNIVERSITY=$(echo "$PR_BODY" | grep -A1 '\*\*University Name:\*\*' | tail -1 | xargs)
+
+          # Extract Region
+          REGION=$(echo "$PR_BODY" | grep -A1 '\*\*Country / Region:\*\*' | tail -1 | xargs)
+
+          # Fallback to GitHub username if name is empty
+          if [ -z "$FULL_NAME" ]; then
+            FULL_NAME="$PR_AUTHOR"
+          fi
+
+          # Fail loudly if no email was found — so admins know to check the PR
+          if [ -z "$EMAIL" ]; then
+            echo "::error::No email address found in PR #$PR_NUMBER body. Cannot send acceptance notification."
+            exit 1
+          fi
+
+          echo "email=$EMAIL"         >> $GITHUB_OUTPUT
+          echo "name=$FULL_NAME"      >> $GITHUB_OUTPUT
+          echo "university=$UNIVERSITY" >> $GITHUB_OUTPUT
+          echo "region=$REGION"       >> $GITHUB_OUTPUT
+          echo "pr_url=$PR_URL"       >> $GITHUB_OUTPUT
+          echo "pr_number=$PR_NUMBER" >> $GITHUB_OUTPUT
+
+      - name: Send acceptance email
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 587
+          secure: false                        # STARTTLS on port 587
+          username: ${{ secrets.AOSSIE_MAIL_USERNAME }}
+          password: ${{ secrets.AOSSIE_MAIL_PASSWORD }}
+          subject: "Welcome to AOSSIE — You've been accepted as an Evangelist!"
+          from: "AOSSIE <${{ secrets.AOSSIE_MAIL_USERNAME }}>"
+          to: ${{ steps.applicant.outputs.email }}
+          bcc: ${{ secrets.AOSSIE_MAIL_USERNAME }}   # keep a copy in the org inbox
+          priority: normal
+          convert_markdown: true
+          body: |
+            Dear ${{ steps.applicant.outputs.name }},
+
+            Congratulations! 🎉
+
+            We are thrilled to inform you that your application to become an **AOSSIE Evangelist** has been reviewed and **accepted**.
+
+            ---
+
+            **Your Details on Record**
+            - **University:** ${{ steps.applicant.outputs.university }}
+            - **Region:** ${{ steps.applicant.outputs.region }}
+            - **Application PR:** [#${{ steps.applicant.outputs.pr_number }}](${{ steps.applicant.outputs.pr_url }})
+
+            ---
+
+            **What happens next?**
+
+            1. You will be added to the AOSSIE Evangelists list in our repository.
+            2. Please join our [Discord server](https://discord.gg/aossie) and introduce yourself in the **#evangelists** channel.
+            3. Start planning your first event — remember, you need at least **2 events per semester** to maintain Active status.
+
+            **Resources to get you started:**
+            - [Evangelist Guidelines](https://github.com/AOSSIE-Org/Info/blob/master/Evangelists.md)
+            - [Communication Guidelines](https://github.com/AOSSIE-Org/Info/blob/master/CommunicationGuidelinesAndRules.md)
+            - [AOSSIE Projects (GSoC 2026)](https://github.com/AOSSIE-Org/Info/blob/master/GSoC-Ideas/2026/index.md)
+
+            We are excited to have you on board and look forward to working with you to grow the open-source community at ${{ steps.applicant.outputs.university }}.
+
+            Welcome to the team!
+
+            Warm regards,
+            **The AOSSIE Admin Team**
+            https://aossie.org

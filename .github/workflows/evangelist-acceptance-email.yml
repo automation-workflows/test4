@@ -36,6 +36,9 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
       - name: Extract applicant details from PR body (or test inputs)
         id: applicant
         env:
@@ -83,6 +86,21 @@ jobs:
           echo "pr_url=$PR_URL"         >> $GITHUB_OUTPUT
           echo "pr_number=$PR_NUMBER"   >> $GITHUB_OUTPUT
 
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Generate acceptance certificate
+        run: |
+          pip install Pillow --quiet
+          python .github/scripts/generate_certificate.py \
+            --name       "${{ steps.applicant.outputs.name }}" \
+            --university "${{ steps.applicant.outputs.university }}" \
+            --region     "${{ steps.applicant.outputs.region }}" \
+            --date       "$(date +'%B %d, %Y')" \
+            --output     certificate.png
+
       - name: Send acceptance email
         uses: dawidd6/action-send-mail@v3
         with:
@@ -95,6 +113,7 @@ jobs:
           from: "AOSSIE <${{ secrets.AOSSIE_MAIL_USERNAME }}>"
           to: ${{ steps.applicant.outputs.email }}
           bcc: ${{ secrets.AOSSIE_ADMIN_BCC_EMAIL }}   # keep a copy in the org inbox (set this secret to e.g. admin@aossie.org)
+          attachments: certificate.png          # generated certificate attached here
           priority: normal
           convert_markdown: true
           body: |

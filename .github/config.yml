@@ -1,23 +1,4 @@
-# Required: toxicity threshold (0 to 0.99 — higher = more toxic)
 sentimentBotToxicityThreshold: .7
 
-# Required: auto-reply message for toxic comments
 sentimentBotReplyComment: >
-  Please be respectful and review our Code of Conduct. cc/ @your-username
-```
-
-- **Threshold tips:** `0.7` = catches clearly toxic comments; `0.5` = stricter; `0.9` = only extreme cases
-- Check [Perspective API](https://www.perspectiveapi.com/) to calibrate threshold
-
----
-
-### 3. Add a Code of Conduct to your repo
-- ⚠️ **The bot won't work without this**
-- GitHub makes it easy: Insights → Community → Code of Conduct → Add
-
----
-
-### How it works
-```
-User posts comment → Perspective API scores toxicity
-→ Score > threshold? → Bot replies with your custom message + CoC link
+  Please be respectful and follow our Code of Conduct.
